@@ -1,0 +1,6 @@
+{
+  "name": "AutoMarket Pro - Marketplace de Vehículos Usados",
+  "description": "Plataforma integral de marketplace de vehículos usados con arquitectura desacoplada Laravel API y frontend reactivo, especificación de 17 prompts encadenados, catálogo facetado, cotizador financiero, gestión de leads e inspección vehicular.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
