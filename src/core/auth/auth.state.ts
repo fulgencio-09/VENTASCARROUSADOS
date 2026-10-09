@@ -7,55 +7,111 @@
 import { User, UserRole, AuthSession } from '../../domain/user/user.entity';
 import { APP_CONFIG } from '../config/app.config';
 
-// Usuarios de prueba únicamente para los cuatro roles autenticables aprobados.
-export const DEMO_USERS: Record<UserRole, User> = {
-  vendedor_particular: {
-    id: 'usr-part-02',
-    name: 'Rodrigo Espinoza',
-    email: 'rodrigo.espinoza@automarket.pro',
-    role: 'vendedor_particular',
-    phone: '+57 300 000 0000',
-    isActive: true,
-    isKycVerified: true,
-    createdAt: '2026-02-14',
-  },
-  concesionario: {
-    id: 'usr-dealer-03',
-    name: 'AutoCenter Colombia',
-    email: 'contacto@autocenter.automarket.pro',
-    role: 'concesionario',
-    phone: '+57 300 000 0001',
-    isActive: true,
-    isKycVerified: true,
-    dealerProfile: {
-      businessName: 'AutoCenter Colombia S.A.S.',
-      taxId: '900000000-1',
-      tradeName: 'AutoCenter Colombia',
-      rating: 4.9,
-      reviewsCount: 84,
-      city: 'Bogotá',
-    },
-    createdAt: '2024-03-15',
-  },
-  administrador: {
-    id: 'usr-admin-05',
-    name: 'Administrador del Sistema',
-    email: 'administrador@automarket.pro',
-    role: 'administrador',
-    isActive: true,
-    isKycVerified: true,
-    createdAt: '2024-08-01',
-  },
-  superadministrador: {
-    id: 'usr-super-06',
-    name: 'Superadministrador',
-    email: 'superadmin@automarket.pro',
-    role: 'superadministrador',
-    isActive: true,
-    isKycVerified: true,
-    createdAt: '2024-01-01',
-  },
+type ApiUser = {
+  id: number;
+  uuid?: string;
+  email: string;
+  status: string;
+  profile?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+    whatsapp?: string | null;
+  } | null;
+  roles?: Array<{ id: number; name: string }>;
+  dealers?: Array<{
+    legal_name: string;
+    commercial_name: string;
+    nit: string;
+    city_id?: number | null;
+  }>;
+  is_kyc_verified?: boolean;
 };
+
+export interface RegisterPayload {
+  role: 'vendedor_particular' | 'concesionario';
+  email: string;
+  password: string;
+  password_confirmation: string;
+  first_name: string;
+  last_name: string;
+  document_type?: string;
+  document_number?: string;
+  phone: string;
+  whatsapp?: string;
+  city_id?: number;
+  address?: string;
+  legal_name?: string;
+  commercial_name?: string;
+  nit?: string;
+  dealer_email?: string;
+  dealer_phone?: string;
+  dealer_whatsapp?: string;
+  website?: string;
+  dealer_city_id?: number;
+  dealer_address?: string;
+}
+
+interface AuthResponse {
+  message: string;
+  user: ApiUser;
+  token: string;
+}
+
+function normalizeUser(raw: ApiUser): User {
+  const role = raw.roles?.[0]?.name as UserRole | undefined;
+
+  if (!role) {
+    throw new Error('La API no devolvió un rol autenticable para el usuario.');
+  }
+
+  const firstName = raw.profile?.first_name?.trim() ?? '';
+  const lastName = raw.profile?.last_name?.trim() ?? '';
+  const dealer = raw.dealers?.[0];
+
+  return {
+    id: raw.uuid ?? String(raw.id),
+    name: [firstName, lastName].filter(Boolean).join(' ') || raw.email,
+    email: raw.email,
+    role,
+    phone: raw.profile?.phone ?? raw.profile?.whatsapp ?? undefined,
+    isActive: raw.status === 'active',
+    isKycVerified: Boolean(raw.is_kyc_verified),
+    dealerProfile: dealer
+      ? {
+          businessName: dealer.legal_name,
+          taxId: dealer.nit,
+          tradeName: dealer.commercial_name,
+          rating: 0,
+          reviewsCount: 0,
+          city: dealer.city_id ? String(dealer.city_id) : '',
+        }
+      : undefined,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function requestAuth(path: string, payload: Record<string, unknown>): Promise<AuthResponse> {
+  const response = await fetch(`${APP_CONFIG.apiBaseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const validationMessage = data?.errors
+      ? Object.values(data.errors as Record<string, string[]>).flat().join(' ')
+      : null;
+    throw new Error(validationMessage || data?.message || 'No fue posible completar la operación.');
+  }
+
+  return data as AuthResponse;
+}
 
 export class AuthStateManager {
   private static instance: AuthStateManager;
@@ -63,27 +119,24 @@ export class AuthStateManager {
   private listeners: Array<(session: AuthSession) => void> = [];
 
   private constructor() {
-    // Mantener el usuario demo de concesionario para la visualización actual.
-    // No existe un rol de visitante: una sesión no autenticada se representa
-    // con user = null.
     const savedUserJson = localStorage.getItem(APP_CONFIG.storageKeys.authUser);
-    let initialUser: User | null = DEMO_USERS.concesionario;
+    const savedToken = localStorage.getItem(APP_CONFIG.storageKeys.authToken);
+    let initialUser: User | null = null;
 
-    if (savedUserJson) {
+    if (savedUserJson && savedToken) {
       try {
         const savedUser = JSON.parse(savedUserJson) as User;
-        initialUser = Object.prototype.hasOwnProperty.call(DEMO_USERS, savedUser.role)
-          ? savedUser
-          : DEMO_USERS.concesionario;
+        initialUser = savedUser;
       } catch {
-        initialUser = DEMO_USERS.concesionario;
+        localStorage.removeItem(APP_CONFIG.storageKeys.authUser);
+        localStorage.removeItem(APP_CONFIG.storageKeys.authToken);
       }
     }
 
     this.currentSession = {
       user: initialUser,
-      token: initialUser ? 'mock-jwt-sanctum-token-xyz' : null,
-      isAuthenticated: initialUser !== null,
+      token: savedToken,
+      isAuthenticated: initialUser !== null && savedToken !== null,
     };
   }
 
@@ -98,15 +151,18 @@ export class AuthStateManager {
     return this.currentSession;
   }
 
-  public switchRole(newRole: UserRole): void {
-    const newUser = DEMO_USERS[newRole];
-    this.currentSession = {
-      user: newUser,
-      token: 'mock-jwt-token-' + newRole,
-      isAuthenticated: true,
-    };
-    localStorage.setItem(APP_CONFIG.storageKeys.authUser, JSON.stringify(newUser));
-    this.notify();
+  public async login(email: string, password: string): Promise<AuthSession> {
+    const response = await requestAuth('/auth/login', { email, password });
+    const user = normalizeUser(response.user);
+    this.setSession(user, response.token);
+    return this.currentSession;
+  }
+
+  public async register(payload: RegisterPayload): Promise<AuthSession> {
+    const response = await requestAuth('/auth/register', payload as unknown as Record<string, unknown>);
+    const user = normalizeUser(response.user);
+    this.setSession(user, response.token);
+    return this.currentSession;
   }
 
   public logout(): void {
@@ -116,6 +172,7 @@ export class AuthStateManager {
       isAuthenticated: false,
     };
     localStorage.removeItem(APP_CONFIG.storageKeys.authUser);
+    localStorage.removeItem(APP_CONFIG.storageKeys.authToken);
     this.notify();
   }
 
@@ -125,6 +182,17 @@ export class AuthStateManager {
     return () => {
       this.listeners = this.listeners.filter((cb) => cb !== callback);
     };
+  }
+
+  private setSession(user: User, token: string): void {
+    this.currentSession = {
+      user,
+      token,
+      isAuthenticated: true,
+    };
+    localStorage.setItem(APP_CONFIG.storageKeys.authUser, JSON.stringify(user));
+    localStorage.setItem(APP_CONFIG.storageKeys.authToken, token);
+    this.notify();
   }
 
   private notify(): void {
