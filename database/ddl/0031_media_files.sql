@@ -36,5 +36,26 @@ CREATE TABLE media_files (
     INDEX idx_media_files_processing_status (processing_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- FKs diferidas desde 0013 profiles, 0019 dealers y 0024 user_kyc_documents
--- hacia media_files deben agregarse después de esta tabla.
+-- FKs diferidas: se agregan después de crear media_files.
+ALTER TABLE profiles
+    ADD CONSTRAINT fk_profiles_avatar_media
+    FOREIGN KEY (avatar_media_id) REFERENCES media_files (id)
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE dealers
+    ADD CONSTRAINT fk_dealers_logo_media
+    FOREIGN KEY (logo_media_id) REFERENCES media_files (id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+    ADD CONSTRAINT fk_dealers_banner_media
+    FOREIGN KEY (banner_media_id) REFERENCES media_files (id)
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE user_kyc_documents
+    ADD CONSTRAINT fk_user_kyc_documents_media
+    FOREIGN KEY (media_file_id) REFERENCES media_files (id)
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE vehicle_makes
+    ADD CONSTRAINT fk_vehicle_makes_logo_media
+    FOREIGN KEY (logo_media_id) REFERENCES media_files (id)
+    ON DELETE SET NULL ON UPDATE CASCADE;
