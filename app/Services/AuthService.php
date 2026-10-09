@@ -2,21 +2,18 @@
 
 namespace App\Services;
 
-use App\Models\Profile;
+use App\Models\Dealer;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use RuntimeException;
 
 class AuthService
 {
-    /**
-     * Roles que pueden autenticar en AutoMarket Pro.
-     * Visitante, cliente y moderador no son roles válidos.
-     *
-     * @var array<int, string>
-     */
     private const AUTHENTICATABLE_ROLES = [
         'vendedor_particular',
         'concesionario',
@@ -24,31 +21,78 @@ class AuthService
         'superadministrador',
     ];
 
-    /**
-     * Registra transaccionalmente un nuevo usuario en la plataforma con su perfil asociado.
-     *
-     * La asignación de roles no se realiza durante el registro general.
-     * Los roles se asignan mediante el flujo RBAC autorizado.
-     *
-     * @param  array{email: string, password: string, status?: string}  $userData
-     * @param  array<string, mixed>|null  $profileData
-     * @return User
-     */
-    public function register(array $userData, ?array $profileData = null): User
-    {
-        return DB::transaction(function () use ($userData, $profileData) {
-            /** @var User $user */
-            $user = User::create([
-                'email'    => $userData['email'],
-                'password' => Hash::make($userData['password']),
-                'status'   => $userData['status'] ?? 'active',
-            ]);
+    private const PUBLIC_REGISTRATION_ROLES = [
+        'vendedor_particular',
+        'concesionario',
+    ];
 
-            if (!empty($profileData)) {
-                $user->profile()->create($profileData);
+    /**
+     * Registra una cuenta pública como vendedor particular o concesionario.
+     * Para concesionario también crea el dealer y vincula al usuario como owner.
+     * Todo el proceso es atómico.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function register(array $data): User
+    {
+        $roleName = $data['role'];
+
+        if (!in_array($roleName, self::PUBLIC_REGISTRATION_ROLES, true)) {
+            throw new RuntimeException('El rol solicitado no puede registrarse públicamente.');
+        }
+
+        return DB::transaction(function () use ($data, $roleName) {
+            $role = Role::where('name', $roleName)
+                ->where('guard_name', 'web')
+                ->first();
+
+            if (!$role) {
+                throw new RuntimeException("El rol {$roleName} no existe en la configuración RBAC.");
             }
 
-            return $user->load('profile');
+            /** @var User $user */
+            $user = User::create([
+                'email' => mb_strtolower(trim($data['email'])),
+                'password' => Hash::make($data['password']),
+                'status' => 'active',
+            ]);
+
+            $user->profile()->create([
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'document_type' => $data['document_type'] ?? null,
+                'document_number' => $data['document_number'] ?? null,
+                'phone' => $data['phone'],
+                'whatsapp' => $data['whatsapp'] ?? null,
+                'city_id' => $data['city_id'] ?? null,
+                'address' => $data['address'] ?? null,
+            ]);
+
+            $user->roles()->attach($role->id);
+
+            if ($roleName === 'concesionario') {
+                /** @var Dealer $dealer */
+                $dealer = Dealer::create([
+                    'uuid' => (string) Str::uuid(),
+                    'legal_name' => $data['legal_name'],
+                    'commercial_name' => $data['commercial_name'],
+                    'nit' => $data['nit'],
+                    'email' => $data['dealer_email'] ?? $data['email'],
+                    'phone' => $data['dealer_phone'] ?? $data['phone'],
+                    'whatsapp' => $data['dealer_whatsapp'] ?? ($data['whatsapp'] ?? null),
+                    'website' => $data['website'] ?? null,
+                    'city_id' => $data['dealer_city_id'] ?? ($data['city_id'] ?? null),
+                    'address' => $data['dealer_address'] ?? ($data['address'] ?? null),
+                    'status' => 'active',
+                ]);
+
+                $dealer->users()->attach($user->id, [
+                    'role_in_dealer' => 'owner',
+                    'status' => 'active',
+                ]);
+            }
+
+            return $user->load('profile', 'roles', 'dealers');
         });
     }
 
@@ -56,13 +100,7 @@ class AuthService
      * Autentica a un usuario verificando credenciales, rate limiting y RBAC.
      * Solo usuarios con uno de los cuatro roles aprobados pueden iniciar sesión.
      *
-     * @param  string  $email
-     * @param  string  $password
-     * @param  string|null  $throttleKey
-     * @param  string  $tokenName
-     * @param  array<int, string>  $abilities
      * @return array{user: User, token: string}
-     *
      * @throws AuthenticationException
      */
     public function login(
@@ -114,19 +152,11 @@ class AuthService
         $token = $this->issueToken($user, $tokenName, $abilities);
 
         return [
-            'user'  => $user->load('profile', 'roles'),
+            'user' => $user->load('profile', 'roles', 'dealers'),
             'token' => $token,
         ];
     }
 
-    /**
-     * Emite un token de acceso personal para el usuario.
-     *
-     * @param  User  $user
-     * @param  string  $tokenName
-     * @param  array<int, string>  $abilities
-     * @return string
-     */
     protected function issueToken(User $user, string $tokenName = 'auth-token', array $abilities = ['*']): string
     {
         $tokenResult = $user->createToken($tokenName, $abilities);
