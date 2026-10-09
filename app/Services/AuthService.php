@@ -12,11 +12,27 @@ use Illuminate\Support\Facades\RateLimiter;
 class AuthService
 {
     /**
+     * Roles que pueden autenticar en AutoMarket Pro.
+     * Visitante, cliente y moderador no son roles válidos.
+     *
+     * @var array<int, string>
+     */
+    private const AUTHENTICATABLE_ROLES = [
+        'vendedor_particular',
+        'concesionario',
+        'administrador',
+        'superadministrador',
+    ];
+
+    /**
      * Registra transaccionalmente un nuevo usuario en la plataforma con su perfil asociado.
      *
-     * @param  array{email: string, password: string, status?: string}  $userData  Datos validados del usuario
-     * @param  array<string, mixed>|null  $profileData  Datos validados del perfil (opcional)
-     * @return User  Instancia del usuario persistido con su relación de perfil cargada
+     * La asignación de roles no se realiza durante el registro general.
+     * Los roles se asignan mediante el flujo RBAC autorizado.
+     *
+     * @param  array{email: string, password: string, status?: string}  $userData
+     * @param  array<string, mixed>|null  $profileData
+     * @return User
      */
     public function register(array $userData, ?array $profileData = null): User
     {
@@ -37,16 +53,17 @@ class AuthService
     }
 
     /**
-     * Autentica a un usuario verificando credenciales, gobernando rate limiting y emitiendo token.
+     * Autentica a un usuario verificando credenciales, rate limiting y RBAC.
+     * Solo usuarios con uno de los cuatro roles aprobados pueden iniciar sesión.
      *
-     * @param  string  $email  Correo electrónico del usuario
-     * @param  string  $password  Contraseña en texto plano
-     * @param  string|null  $throttleKey  Clave de rate limiting (ej. 'login:ip|email')
-     * @param  string  $tokenName  Nombre identificador del token (por defecto 'auth-token')
-     * @param  array<int, string>  $abilities  Habilidades o permisos asociados al token
-     * @return array{user: User, token: string}  Array estructurado con usuario autenticado y token de acceso
+     * @param  string  $email
+     * @param  string  $password
+     * @param  string|null  $throttleKey
+     * @param  string  $tokenName
+     * @param  array<int, string>  $abilities
+     * @return array{user: User, token: string}
      *
-     * @throws AuthenticationException  Si las credenciales son inválidas o se excede el rate limit
+     * @throws AuthenticationException
      */
     public function login(
         string $email,
@@ -77,6 +94,19 @@ class AuthService
             throw new AuthenticationException('La cuenta de usuario se encuentra inactiva o suspendida.');
         }
 
+        $user->load('roles');
+
+        $assignedRoles = $user->roles
+            ->pluck('name')
+            ->filter(fn (mixed $role): bool => in_array($role, self::AUTHENTICATABLE_ROLES, true))
+            ->values();
+
+        if ($assignedRoles->count() !== 1) {
+            throw new AuthenticationException(
+                'El usuario no tiene exactamente un rol autenticable asignado. Solicite la asignación correspondiente al Superadministrador.'
+            );
+        }
+
         if ($throttleKey !== null) {
             RateLimiter::clear($throttleKey);
         }
@@ -84,7 +114,7 @@ class AuthService
         $token = $this->issueToken($user, $tokenName, $abilities);
 
         return [
-            'user'  => $user->load('profile'),
+            'user'  => $user->load('profile', 'roles'),
             'token' => $token,
         ];
     }
@@ -92,10 +122,10 @@ class AuthService
     /**
      * Emite un token de acceso personal para el usuario.
      *
-     * @param  User  $user  Usuario para el cual se emite el token
-     * @param  string  $tokenName  Identificador del token
-     * @param  array<int, string>  $abilities  Habilidades concedidas
-     * @return string  Token en texto plano para el cliente
+     * @param  User  $user
+     * @param  string  $tokenName
+     * @param  array<int, string>  $abilities
+     * @return string
      */
     protected function issueToken(User $user, string $tokenName = 'auth-token', array $abilities = ['*']): string
     {
