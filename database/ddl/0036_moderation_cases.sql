@@ -1,0 +1,23 @@
+CREATE TABLE moderation_cases (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    uuid CHAR(36) NOT NULL,
+    publication_id BIGINT UNSIGNED NOT NULL,
+    seller_user_id BIGINT UNSIGNED NOT NULL,
+    assigned_moderator_user_id BIGINT UNSIGNED NULL,
+    reason VARCHAR(500) NOT NULL,
+    priority ENUM('baja', 'media', 'alta', 'critica') NOT NULL DEFAULT 'media',
+    status ENUM('pendiente', 'en_revision', 'resuelto', 'cerrado') NOT NULL DEFAULT 'pendiente',
+    decision ENUM('pendiente', 'aprobado', 'rechazado', 'suspendido') NOT NULL DEFAULT 'pendiente',
+    decision_reason VARCHAR(500) NULL,
+    risk_score DECIMAL(5, 2) NULL,
+    created_at TIMESTAMP NULL DEFAULT NULL,
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+    CONSTRAINT uq_moderation_cases_uuid UNIQUE (uuid),
+    CONSTRAINT fk_moderation_cases_publication FOREIGN KEY (publication_id) REFERENCES publications (id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_moderation_cases_seller_user FOREIGN KEY (seller_user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_moderation_cases_assigned_moderator FOREIGN KEY (assigned_moderator_user_id) REFERENCES users (id) ON DELETE SET NULL ON UPDATE CASCADE,
+    INDEX idx_moderation_cases_publication (publication_id),
+    INDEX idx_moderation_cases_seller (seller_user_id),
+    INDEX idx_moderation_cases_assigned_status (assigned_moderator_user_id, status),
+    INDEX idx_moderation_cases_priority_status (priority, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
