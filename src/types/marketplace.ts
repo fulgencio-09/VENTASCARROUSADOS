@@ -91,6 +91,8 @@ export interface Vehicle {
   version: string;
   year: number;
   priceUsd: number;
+  /** Precio de venta en pesos colombianos. Campo canónico para nuevas publicaciones. */
+  priceCop?: number;
   mileageKm: number;
   fuelType: FuelType;
   transmission: TransmissionType;
@@ -146,7 +148,7 @@ export interface Lead {
 export interface PublicationPlan {
   id: PlanTier;
   name: string;
-  priceUsd: number;
+  priceCop: number;
   durationDays: number;
   photoLimit: number;
   features: string[];
