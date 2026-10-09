@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthStateManager } from '../../core/auth/auth.state';
 import { UserRole } from '../../domain/user/user.entity';
-import { ShieldCheck, UserCheck, Layers, Car, ChevronDown } from 'lucide-react';
+import { ShieldCheck, UserCheck, Car, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
   currentView: string;
@@ -35,14 +35,14 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const roleLabels: Record<UserRole, string> = {
-    visitante: 'Visitante',
-    cliente: 'Cliente',
     vendedor_particular: 'Vendedor Particular',
     concesionario: 'Concesionario',
-    moderador: 'Moderador',
     administrador: 'Administrador',
     superadministrador: 'Superadministrador',
   };
+
+  const activeRole = session.user?.role;
+  const activeRoleLabel = activeRole ? roleLabels[activeRole] : 'Sin sesión';
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all">
@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* ZONA 2: 4-6 Enlaces de Navegación Limpios */}
+        {/* ZONA 2: Enlaces de navegación */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
           <button
             onClick={() => onNavigate('catalog')}
@@ -86,9 +86,8 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
-          
-          {/* Enlace condicional al Dashboard según rol */}
-          {(session.user?.role === 'vendedor_particular' || session.user?.role === 'concesionario') && (
+
+          {(activeRole === 'vendedor_particular' || activeRole === 'concesionario') && (
             <button
               onClick={() => onNavigate('seller_dashboard')}
               className={`hover:text-slate-900 transition-colors cursor-pointer ${
@@ -99,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {(session.user?.role === 'moderador' || session.user?.role === 'administrador' || session.user?.role === 'superadministrador') && (
+          {(activeRole === 'administrador' || activeRole === 'superadministrador') && (
             <button
               onClick={() => onNavigate('admin_dashboard')}
               className={`hover:text-slate-900 transition-colors cursor-pointer ${
@@ -109,14 +108,10 @@ export const Header: React.FC<HeaderProps> = ({
               Panel de Administración
             </button>
           )}
-
-
         </nav>
 
-        {/* ZONA 3: 1-2 Acciones Primarias + Selector de Rol RBAC */}
+        {/* ZONA 3: Acciones primarias + selector de prueba RBAC */}
         <div className="flex items-center gap-3">
-          
-          {/* Selector interactivo de Roles para verificación del sistema */}
           <div className="relative">
             <button
               onClick={() => setShowRoleMenu(!showRoleMenu)}
@@ -125,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <UserCheck className="w-3.5 h-3.5 text-slate-600" />
               <span className="hidden sm:inline text-slate-500">Rol:</span>
-              <span className="font-semibold text-slate-900">{roleLabels[session.user?.role || 'visitante']}</span>
+              <span className="font-semibold text-slate-900">{activeRoleLabel}</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
             </button>
 
@@ -139,18 +134,17 @@ export const Header: React.FC<HeaderProps> = ({
                     key={r}
                     onClick={() => handleRoleChange(r)}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-50 cursor-pointer ${
-                      session.user?.role === r ? 'font-semibold text-amber-700 bg-amber-50/60' : 'text-slate-700'
+                      activeRole === r ? 'font-semibold text-amber-700 bg-amber-50/60' : 'text-slate-700'
                     }`}
                   >
                     <span>{roleLabels[r]}</span>
-                    {session.user?.role === r && <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />}
+                    {activeRole === r && <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Botón Primario: Publicar Vehículo */}
           <button
             onClick={onOpenPublish}
             className="px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-all shadow-sm hover:shadow whitespace-nowrap cursor-pointer"
