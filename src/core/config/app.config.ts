@@ -7,11 +7,11 @@
 export const APP_CONFIG = {
   appName: 'AutoMarket Pro',
   appVersion: '1.0.0',
-  apiBaseUrl: '/api/v1',
+  apiBaseUrl: '/api',
   currency: {
     symbol: '$',
-    code: 'USD',
-    locale: 'es-CL',
+    code: 'COP',
+    locale: 'es-CO',
   },
   pagination: {
     defaultPageSize: 12,
