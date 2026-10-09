@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Permission;
-use App\Models\Profile;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -78,7 +77,8 @@ class AdminDataController extends Controller
                 'address' => $data['address'] ?? null,
             ]);
 
-            $user->roles()->sync([Role::where('name', $data['role'])->value('id')]);
+            $roleId = Role::where('name', $data['role'])->value('id');
+            $user->roles()->sync([$roleId]);
 
             return $user;
         });
@@ -159,7 +159,7 @@ class AdminDataController extends Controller
 
         $isSuperAdmin = $user->roles()->where('name', 'superadministrador')->exists();
         if ($isSuperAdmin) {
-            $remaining = User::whereKeyNot($user->id)
+            $remaining = User::where('id', '<>', $user->id)
                 ->whereHas('roles', fn ($query) => $query->where('name', 'superadministrador'))
                 ->count();
 
