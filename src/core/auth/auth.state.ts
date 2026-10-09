@@ -7,68 +7,40 @@
 import { User, UserRole, AuthSession } from '../../domain/user/user.entity';
 import { APP_CONFIG } from '../config/app.config';
 
-// Usuarios de prueba preconfigurados para cada uno de los roles clave
+// Usuarios de prueba únicamente para los cuatro roles autenticables aprobados.
 export const DEMO_USERS: Record<UserRole, User> = {
-  visitante: {
-    id: 'usr-guest-00',
-    name: 'Visitante Anónimo',
-    email: '',
-    role: 'visitante',
-    isActive: true,
-    isKycVerified: false,
-    createdAt: '2026-10-01',
-  },
-  cliente: {
-    id: 'usr-client-01',
-    name: 'Carolina Miranda',
-    email: 'carolina.miranda@gmail.com',
-    role: 'cliente',
-    phone: '+56 9 8812 4321',
-    isActive: true,
-    isKycVerified: true,
-    createdAt: '2026-05-10',
-  },
   vendedor_particular: {
     id: 'usr-part-02',
     name: 'Rodrigo Espinoza',
-    email: 'rodrigo.espinoza@hotmail.com',
+    email: 'rodrigo.espinoza@automarket.pro',
     role: 'vendedor_particular',
-    phone: '+56 9 7654 3210',
+    phone: '+57 300 000 0000',
     isActive: true,
     isKycVerified: true,
     createdAt: '2026-02-14',
   },
   concesionario: {
     id: 'usr-dealer-03',
-    name: 'AutoCenter Los Andes',
-    email: 'contacto@autocenter.cl',
+    name: 'AutoCenter Colombia',
+    email: 'contacto@autocenter.automarket.pro',
     role: 'concesionario',
-    phone: '+56 9 8452 1190',
+    phone: '+57 300 000 0001',
     isActive: true,
     isKycVerified: true,
     dealerProfile: {
-      businessName: 'AutoCenter Los Andes SpA',
-      taxId: '76.452.190-8',
-      tradeName: 'AutoCenter Los Andes',
+      businessName: 'AutoCenter Colombia S.A.S.',
+      taxId: '900000000-1',
+      tradeName: 'AutoCenter Colombia',
       rating: 4.9,
       reviewsCount: 84,
-      city: 'Santiago',
+      city: 'Bogotá',
     },
     createdAt: '2024-03-15',
   },
-  moderador: {
-    id: 'usr-mod-04',
-    name: 'Esteban Morales',
-    email: 'esteban.moderador@automarket.pro',
-    role: 'moderador',
-    isActive: true,
-    isKycVerified: true,
-    createdAt: '2025-01-20',
-  },
   administrador: {
     id: 'usr-admin-05',
-    name: 'Valeria Cárdenas',
-    email: 'valeria.admin@automarket.pro',
+    name: 'Administrador del Sistema',
+    email: 'administrador@automarket.pro',
     role: 'administrador',
     isActive: true,
     isKycVerified: true,
@@ -76,7 +48,7 @@ export const DEMO_USERS: Record<UserRole, User> = {
   },
   superadministrador: {
     id: 'usr-super-06',
-    name: 'Arquitecto Principal',
+    name: 'Superadministrador',
     email: 'superadmin@automarket.pro',
     role: 'superadministrador',
     isActive: true,
@@ -91,13 +63,18 @@ export class AuthStateManager {
   private listeners: Array<(session: AuthSession) => void> = [];
 
   private constructor() {
-    // Inicializar con concesionario por defecto para testing del portal de ventas
+    // Mantener el usuario demo de concesionario para la visualización actual.
+    // No existe un rol de visitante: una sesión no autenticada se representa
+    // con user = null.
     const savedUserJson = localStorage.getItem(APP_CONFIG.storageKeys.authUser);
-    let initialUser: User = DEMO_USERS.concesionario;
+    let initialUser: User | null = DEMO_USERS.concesionario;
 
     if (savedUserJson) {
       try {
-        initialUser = JSON.parse(savedUserJson);
+        const savedUser = JSON.parse(savedUserJson) as User;
+        initialUser = Object.prototype.hasOwnProperty.call(DEMO_USERS, savedUser.role)
+          ? savedUser
+          : DEMO_USERS.concesionario;
       } catch {
         initialUser = DEMO_USERS.concesionario;
       }
@@ -105,8 +82,8 @@ export class AuthStateManager {
 
     this.currentSession = {
       user: initialUser,
-      token: initialUser.role === 'visitante' ? null : 'mock-jwt-sanctum-token-xyz',
-      isAuthenticated: initialUser.role !== 'visitante',
+      token: initialUser ? 'mock-jwt-sanctum-token-xyz' : null,
+      isAuthenticated: initialUser !== null,
     };
   }
 
@@ -125,30 +102,20 @@ export class AuthStateManager {
     const newUser = DEMO_USERS[newRole];
     this.currentSession = {
       user: newUser,
-      token: newRole === 'visitante' ? null : 'mock-jwt-token-' + newRole,
-      isAuthenticated: newRole !== 'visitante',
+      token: 'mock-jwt-token-' + newRole,
+      isAuthenticated: true,
     };
     localStorage.setItem(APP_CONFIG.storageKeys.authUser, JSON.stringify(newUser));
     this.notify();
   }
 
-  public registerClient(name: string, email: string, phone: string): void {
-    const newClient: User = {
-      id: `usr-client-${Date.now()}`,
-      name: name || 'Nuevo Cliente Registrado',
-      email: email || 'cliente@automarket.pro',
-      role: 'cliente',
-      phone: phone || '+56 9 8812 4321',
-      isActive: true,
-      isKycVerified: true,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
+  public logout(): void {
     this.currentSession = {
-      user: newClient,
-      token: 'jwt-sanctum-client-' + Date.now(),
-      isAuthenticated: true,
+      user: null,
+      token: null,
+      isAuthenticated: false,
     };
-    localStorage.setItem(APP_CONFIG.storageKeys.authUser, JSON.stringify(newClient));
+    localStorage.removeItem(APP_CONFIG.storageKeys.authUser);
     this.notify();
   }
 
