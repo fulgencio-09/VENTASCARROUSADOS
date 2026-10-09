@@ -8,7 +8,7 @@
  * romper consumidores existentes, se convierten a COP únicamente en el límite
  * del catálogo. La referencia de compatibilidad usada para estos mocks es
  * 1 USD = 4.000 COP. Los precios reales de negocio deberán venir del backend
- * con amount + currency=COD/COP según el modelo financiero definitivo.
+ * con amount + currency= COP según el modelo financiero definitivo.
  */
 
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -17,14 +17,6 @@ import { CatalogView as LegacyCatalogView } from './CatalogViewLegacy';
 
 const MOCK_USD_TO_COP = 4000;
 const MAX_CATALOG_PRICE_COP = 240_000_000;
-
-const formatCop = (value: number) =>
-  new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 
 const toCop = (vehicle: Vehicle) =>
   vehicle.priceCop ?? Math.round(vehicle.priceUsd * MOCK_USD_TO_COP);
