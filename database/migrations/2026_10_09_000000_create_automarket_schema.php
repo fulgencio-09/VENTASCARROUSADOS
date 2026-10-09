@@ -65,6 +65,12 @@ return new class extends Migration
 
     public function up(): void
     {
+        // The approved DDL contains TIMESTAMP NOT NULL columns without explicit
+        // defaults. MariaDB 10.4 rejects those definitions under its default
+        // SQL mode; this session setting allows the approved DDL to execute
+        // without modifying the DDL source of truth.
+        DB::statement("SET SESSION sql_mode = 'NO_ENGINE_SUBSTITUTION'");
+
         foreach ($this->ddlFiles as $file) {
             $path = base_path('database/ddl/' . $file);
 
