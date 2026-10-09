@@ -13,6 +13,7 @@ interface PublicLayoutProps {
   currentView: string;
   onNavigate: (view: string) => void;
   onOpenPublish: () => void;
+  onOpenAuth: (mode: 'login' | 'register') => void;
   comparisonCount: number;
 }
 
@@ -21,6 +22,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({
   currentView,
   onNavigate,
   onOpenPublish,
+  onOpenAuth,
   comparisonCount,
 }) => {
   return (
@@ -29,6 +31,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({
         currentView={currentView}
         onNavigate={onNavigate}
         onOpenPublish={onOpenPublish}
+        onOpenAuth={onOpenAuth}
         comparisonCount={comparisonCount}
       />
       <main className="flex-1 w-full">{children}</main>
