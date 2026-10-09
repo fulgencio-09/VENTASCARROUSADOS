@@ -44,6 +44,13 @@ interface UploadedPhoto {
   isPrimary: boolean;
 }
 
+const formatCop = (value: number) =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(value);
+
 export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
   isOpen,
   onClose,
@@ -103,8 +110,8 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
   ]);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Paso 5: Precio y Plan de Visibilidad
-  const [priceUsd, setPriceUsd] = useState(25900);
+  // Paso 5: Precio y Plan de Visibilidad en pesos colombianos
+  const [priceCop, setPriceCop] = useState(25900000);
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>('destacado');
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -186,7 +193,8 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
       model,
       version,
       year,
-      priceUsd,
+      priceUsd: priceCop,
+      priceCop,
       mileageKm,
       fuelType,
       transmission,
@@ -568,7 +576,6 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
               {/* PASO 4: FOTOGRAFÍAS CON VALIDACIÓN, PRINCIPAL Y REORDENAMIENTO */}
               {currentStep === 4 && (
                 <div className="space-y-4">
-                  {/* Zona de Carga Arrastrar y Soltar */}
                   <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center bg-slate-50/60 space-y-2 relative">
                     <Upload className="w-8 h-8 text-amber-600 mx-auto" />
                     <h4 className="text-xs font-semibold text-slate-800">
@@ -597,7 +604,6 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
                     </div>
                   )}
 
-                  {/* Lista de Fotos con Controles de Reordenamiento y Foto Principal */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span>{photos.length} Fotografías cargadas (arrastra o usa flechas para ordenar)</span>
@@ -612,7 +618,6 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
                             photo.isPrimary ? 'border-amber-500 shadow-sm' : 'border-slate-200'
                           }`}
                         >
-                          {/* Contenedor de Imagen sin deformar */}
                           <div className="relative aspect-[4/3] flex items-center justify-center bg-slate-950">
                             <img
                               src={photo.url}
@@ -626,7 +631,6 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
                             )}
                           </div>
 
-                          {/* Barra de Controles de la Foto */}
                           <div className="p-2 bg-white border-t border-slate-100 flex items-center justify-between text-xs">
                             <button
                               type="button"
@@ -680,16 +684,19 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
               {currentStep === 5 && (
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Precio de Venta Contado (USD) *</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Precio de Venta Contado (COP) *</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400">$</span>
                       <input
                         type="number"
-                        value={priceUsd}
-                        onChange={(e) => setPriceUsd(Number(e.target.value))}
+                        min={0}
+                        step={1000}
+                        value={priceCop}
+                        onChange={(e) => setPriceCop(Number(e.target.value))}
                         className="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono font-bold text-slate-900"
                       />
                     </div>
+                    <p className="mt-1 text-[11px] text-slate-500">Valor en pesos colombianos. Ejemplo: {formatCop(25900000)}</p>
                   </div>
 
                   <div>
@@ -723,7 +730,7 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
 
                           <div className="text-right">
                             <span className="font-display font-bold text-sm text-slate-900 font-mono">
-                              {plan.priceUsd === 0 ? 'Gratis' : `$${plan.priceUsd} USD`}
+                              {plan.priceCop === 0 ? 'Gratis' : `${formatCop(plan.priceCop)} COP`}
                             </span>
                           </div>
                         </div>
@@ -737,7 +744,6 @@ export const PublishWizardModal: React.FC<PublishWizardModalProps> = ({
 
         </div>
 
-        {/* BOTONES DE NAVEGACIÓN DEL WIZARD */}
         {!isSuccess && (
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
             <button
