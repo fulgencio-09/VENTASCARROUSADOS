@@ -110,15 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          <button
-            onClick={() => onNavigate('prompts_suite')}
-            className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer ${
-              currentView === 'prompts_suite' ? 'text-amber-600 font-semibold' : 'text-slate-500'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-amber-500" />
-            Suite 17 Prompts
-          </button>
+
         </nav>
 
         {/* ZONA 3: 1-2 Acciones Primarias + Selector de Rol RBAC */}
