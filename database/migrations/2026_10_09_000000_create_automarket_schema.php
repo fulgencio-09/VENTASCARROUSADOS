@@ -78,8 +78,7 @@ return new class extends Migration
                 throw new RuntimeException("DDL vacío: {$path}");
             }
 
-            // The approved DDL 0031 contains multiple ALTER TABLE statements.
-            // Execute each statement independently while preserving the exact SQL.
+            // Execute each SQL statement independently while preserving the approved DDL.
             foreach ($this->splitSqlStatements($sql) as $statement) {
                 DB::unprepared($statement);
             }
@@ -106,10 +105,62 @@ return new class extends Migration
         $inSingleQuote = false;
         $inDoubleQuote = false;
         $inBacktick = false;
+        $inLineComment = false;
+        $inBlockComment = false;
         $escaped = false;
 
         for ($i = 0; $i < $length; $i++) {
             $char = $sql[$i];
+            $next = $i + 1 < $length ? $sql[$i + 1] : '';
+
+            if ($inLineComment) {
+                $buffer .= $char;
+
+                if ($char === "\n" || $char === "\r") {
+                    $inLineComment = false;
+                }
+
+                continue;
+            }
+
+            if ($inBlockComment) {
+                $buffer .= $char;
+
+                if ($char === '*' && $next === '/') {
+                    $buffer .= $next;
+                    $i++;
+                    $inBlockComment = false;
+                }
+
+                continue;
+            }
+
+            if (! $inSingleQuote && ! $inDoubleQuote && ! $inBacktick) {
+                if ($char === '-' && $next === '-') {
+                    $third = $i + 2 < $length ? $sql[$i + 2] : '';
+
+                    if ($third === '' || $third === ' ' || $third === "\t" || $third === "\r" || $third === "\n") {
+                        $buffer .= $char . $next;
+                        $i++;
+                        $inLineComment = true;
+                        continue;
+                    }
+                }
+
+                if ($char === '#') {
+                    $buffer .= $char;
+                    $inLineComment = true;
+                    continue;
+                }
+
+                if ($char === '/' && $next === '*') {
+                    $buffer .= $char . $next;
+                    $i++;
+                    $inBlockComment = true;
+                    continue;
+                }
+            }
+
             $buffer .= $char;
 
             if ($escaped) {
