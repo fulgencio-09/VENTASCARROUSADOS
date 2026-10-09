@@ -13,22 +13,22 @@ interface HeaderProps {
   currentView: string;
   onNavigate: (view: string) => void;
   onOpenPublish: () => void;
-  onOpenAuth: (mode: 'login' | 'register') => void;
   comparisonCount: number;
 }
+
+const openAuth = (mode: 'login' | 'register') => {
+  window.dispatchEvent(new CustomEvent('automarket:open-auth', { detail: { mode } }));
+};
 
 export const Header: React.FC<HeaderProps> = ({
   currentView,
   onNavigate,
   onOpenPublish,
-  onOpenAuth,
   comparisonCount,
 }) => {
   const [session, setSession] = useState(AuthStateManager.getInstance().getSession());
 
-  useEffect(() => {
-    return AuthStateManager.getInstance().subscribe(setSession);
-  }, []);
+  useEffect(() => AuthStateManager.getInstance().subscribe(setSession), []);
 
   const roleLabels: Record<UserRole, string> = {
     vendedor_particular: 'Vendedor Particular',
@@ -79,11 +79,11 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2">
           {!session.isAuthenticated ? (
             <>
-              <button onClick={() => onOpenAuth('login')} className="px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer">
+              <button onClick={() => openAuth('login')} className="px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer">
                 <LogIn className="w-4 h-4" />
                 Iniciar sesión
               </button>
-              <button onClick={() => onOpenAuth('register')} className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+              <button onClick={() => openAuth('register')} className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
                 <UserPlus className="w-4 h-4" />
                 Registrarme
               </button>
