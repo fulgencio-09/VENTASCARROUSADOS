@@ -26,7 +26,7 @@ export const PUBLICATION_PLANS: PublicationPlan[] = [
   {
     id: 'free',
     name: 'Plan Básico',
-    priceUsd: 0,
+    priceCop: 0,
     durationDays: 30,
     photoLimit: 8,
     boostPriority: 1,
@@ -40,7 +40,7 @@ export const PUBLICATION_PLANS: PublicationPlan[] = [
   {
     id: 'destacado',
     name: 'Plan Destacado',
-    priceUsd: 29,
+    priceCop: 29000,
     durationDays: 45,
     photoLimit: 18,
     boostPriority: 3,
@@ -56,7 +56,7 @@ export const PUBLICATION_PLANS: PublicationPlan[] = [
   {
     id: 'premium',
     name: 'Plan Premium Oro',
-    priceUsd: 59,
+    priceCop: 59000,
     durationDays: 60,
     photoLimit: 30,
     boostPriority: 5,
