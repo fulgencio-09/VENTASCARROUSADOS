@@ -4,12 +4,15 @@
  * Contratos de Dominio: Identidad, Roles y Perfiles
  */
 
-export type UserRole = 
-  | 'visitante'
-  | 'cliente'
+/**
+ * Roles autenticables del sistema.
+ *
+ * Visitantes y clientes no son roles: son usuarios no autenticados que
+ * únicamente pueden consultar las publicaciones públicas.
+ */
+export type UserRole =
   | 'vendedor_particular'
   | 'concesionario'
-  | 'moderador'
   | 'administrador'
   | 'superadministrador';
 
