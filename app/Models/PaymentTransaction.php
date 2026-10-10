@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -73,11 +74,11 @@ class PaymentTransaction extends Model
     protected static function booted(): void
     {
         static::creating(function (PaymentTransaction $transaction) {
-            $transaction->currency = 'COP';
+            $transaction->currency = Currency::code();
         });
 
         static::saving(function (PaymentTransaction $transaction) {
-            $transaction->currency = 'COP';
+            $transaction->currency = Currency::code();
         });
     }
 
