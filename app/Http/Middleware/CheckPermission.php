@@ -14,6 +14,10 @@ class CheckPermission
 
         abort_unless($user, 401, 'Autenticación requerida.');
 
+        if ($user->roles()->where('name', 'superadministrador')->exists()) {
+            return $next($request);
+        }
+
         $directPermissions = $user->permissions()
             ->whereIn('name', $permissions)
             ->pluck('name');
