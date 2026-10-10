@@ -1,7 +1,6 @@
 import React from 'react';
 import { Vehicle, Lead } from '../../types/marketplace';
 import { AdminDatabaseView } from './AdminDatabaseView';
-import { PermissionFeaturePanel } from './PermissionFeaturePanel';
 
 interface AdminDashboardViewProps {
   vehicles: Vehicle[];
@@ -16,15 +15,9 @@ interface AdminDashboardViewProps {
 /**
  * BackOffice Administrativo.
  *
- * La vista de gestión mantiene la administración de usuarios, roles y permisos
- * y ahora muestra un panel de las funcionalidades que quedan activadas por
- * las casillas marcadas en cada rol.
+ * La configuración de capacidades es interna al sistema y se define por rol.
+ * No se expone al usuario final una matriz de permisos técnicos.
  */
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = () => {
-  return (
-    <div className="space-y-6">
-      <AdminDatabaseView />
-      <PermissionFeaturePanel />
-    </div>
-  );
+  return <AdminDatabaseView />;
 };
