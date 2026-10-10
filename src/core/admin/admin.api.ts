@@ -77,6 +77,18 @@ export const adminApi = {
     method: 'PUT',
     body: JSON.stringify(payload),
   }),
+  changeUserStatus: (id: number, status: AdminUser['status']) => request<{ user: AdminUser }>(`/admin/users/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  }),
+  changeUserRole: (id: number, role: string) => request<{ user: AdminUser }>(`/admin/users/${id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  }),
+  resetUserPassword: (id: number, password: string) => request<{ message: string }>(`/admin/users/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  }),
   deleteUser: (id: number) => request<{ message: string }>(`/admin/users/${id}`, {
     method: 'DELETE',
   }),
