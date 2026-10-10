@@ -14,10 +14,22 @@ class CheckPermission
 
         abort_unless($user, 401, 'Autenticación requerida.');
 
-        foreach ($permissions as $permission) {
-            if ($user->hasPermission($permission)) {
-                return $next($request);
-            }
+        $directPermissions = $user->permissions()
+            ->whereIn('name', $permissions)
+            ->pluck('name');
+
+        if ($directPermissions->isNotEmpty()) {
+            return $next($request);
+        }
+
+        $rolePermissions = $user->roles()
+            ->with('permissions')
+            ->get()
+            ->flatMap(fn ($role) => $role->permissions->pluck('name'))
+            ->unique();
+
+        if ($rolePermissions->intersect($permissions)->isNotEmpty()) {
+            return $next($request);
         }
 
         abort(403, 'No tiene el permiso requerido para realizar esta operación.');
