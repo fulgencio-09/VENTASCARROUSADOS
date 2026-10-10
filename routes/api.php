@@ -15,6 +15,12 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function (): void {
         ->middleware('permission:usuarios.crear');
     Route::put('/users/{user}', [AdminDataController::class, 'updateUser'])
         ->middleware('permission:usuarios.editar');
+    Route::patch('/users/{user}/status', [AdminDataController::class, 'changeUserStatus'])
+        ->middleware('permission:usuarios.cambiar_estado');
+    Route::patch('/users/{user}/role', [AdminDataController::class, 'changeUserRole'])
+        ->middleware('permission:usuarios.cambiar_rol');
+    Route::post('/users/{user}/reset-password', [AdminDataController::class, 'resetUserPassword'])
+        ->middleware('permission:usuarios.restablecer_password');
     Route::delete('/users/{user}', [AdminDataController::class, 'destroyUser'])
         ->middleware('permission:usuarios.eliminar');
 
