@@ -17,18 +17,18 @@ const PAGE_SIZE = 10;
 
 const Pagination: React.FC<{ page: number; total: number; onChange: (page: number) => void }> = ({ page, total, onChange }) => {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  if (total <= PAGE_SIZE) return null;
-  const start = (page - 1) * PAGE_SIZE + 1;
-  const end = Math.min(page * PAGE_SIZE, total);
+  const safePage = Math.min(Math.max(page, 1), pages);
+  const start = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const end = Math.min(safePage * PAGE_SIZE, total);
   return (
-    <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-t bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-xs text-slate-500">Mostrando {start}–{end} de {total} registros</p>
       <div className="flex items-center gap-1">
-        <button disabled={page === 1} onClick={() => onChange(page - 1)} className="rounded-lg border p-2 text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Página anterior"><ChevronLeft size={16}/></button>
-        {Array.from({ length: pages }, (_, index) => index + 1).slice(Math.max(0, page - 3), Math.min(pages, page + 2)).map((number) => (
-          <button key={number} onClick={() => onChange(number)} className={`min-w-9 rounded-lg px-3 py-2 text-xs font-semibold ${page === number ? 'bg-slate-900 text-white' : 'border text-slate-600 hover:bg-slate-50'}`}>{number}</button>
+        <button disabled={safePage === 1} onClick={() => onChange(safePage - 1)} className="rounded-lg border p-2 text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Página anterior"><ChevronLeft size={16}/></button>
+        {Array.from({ length: pages }, (_, index) => index + 1).slice(Math.max(0, safePage - 3), Math.min(pages, safePage + 2)).map((number) => (
+          <button key={number} onClick={() => onChange(number)} className={`min-w-9 rounded-lg px-3 py-2 text-xs font-semibold ${safePage === number ? 'bg-slate-900 text-white' : 'border text-slate-600 hover:bg-slate-50'}`}>{number}</button>
         ))}
-        <button disabled={page === pages} onClick={() => onChange(page + 1)} className="rounded-lg border p-2 text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Página siguiente"><ChevronRight size={16}/></button>
+        <button disabled={safePage === pages} onClick={() => onChange(safePage + 1)} className="rounded-lg border p-2 text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Página siguiente"><ChevronRight size={16}/></button>
       </div>
     </div>
   );
