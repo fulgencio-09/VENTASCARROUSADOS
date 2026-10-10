@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { Vehicle } from '../../types/marketplace';
+import { formatCop } from '../../core/finance/currency';
 import { Search, ShieldCheck, Award, FileCheck2, ArrowRight, Zap, Check, ChevronRight } from 'lucide-react';
 import sedanHero from '../../assets/images/sedan_luxury_car_1791075158268.jpg';
 
@@ -107,10 +108,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase px-2 mb-1">Precio Máximo (USD)</label>
+                <label className="block text-[11px] font-semibold text-slate-500 uppercase px-2 mb-1">Precio Máximo (COP)</label>
                 <input
                   type="number"
-                  placeholder="Ej: 35000"
+                  placeholder="Ej: 140000000"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono font-medium text-slate-800 focus:outline-none focus:border-amber-500"
@@ -194,70 +195,75 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredVehicles.slice(0, 6).map((vehicle) => (
-            <div
-              key={vehicle.id}
-              onClick={() => onSelectVehicle(vehicle)}
-              className="bg-white border border-slate-200/90 rounded-xl overflow-hidden hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group flex flex-col"
-            >
-              {/* Contenedor de Imagen 4:3 con Badge de Inspección */}
-              <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
-                <img
-                  src={vehicle.images[0]}
-                  alt={vehicle.title}
-                  className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute top-3 left-3 bg-slate-900/85 backdrop-blur-sm text-white px-2.5 py-1 rounded text-xs font-mono font-medium flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Certificado {vehicle.inspectionScore}/100</span>
-                </div>
-                {vehicle.plan === 'premium' && (
-                  <div className="absolute top-3 right-3 bg-amber-500 text-slate-950 px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider">
-                    Premium
-                  </div>
-                )}
-              </div>
+          {featuredVehicles.slice(0, 6).map((vehicle) => {
+            const priceCop = vehicle.priceCop ?? 0;
+            const monthlyEstimateCop = Math.round(priceCop * 0.016);
 
-              {/* Contenido de la Card sin Píldoras Estáticas */}
-              <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div>
-                  <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-                    {vehicle.make} · {vehicle.model}
+            return (
+              <div
+                key={vehicle.id}
+                onClick={() => onSelectVehicle(vehicle)}
+                className="bg-white border border-slate-200/90 rounded-xl overflow-hidden hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group flex flex-col"
+              >
+                {/* Contenedor de Imagen 4:3 con Badge de Inspección */}
+                <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                  <img
+                    src={vehicle.images[0]}
+                    alt={vehicle.title}
+                    className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-3 left-3 bg-slate-900/85 backdrop-blur-sm text-white px-2.5 py-1 rounded text-xs font-mono font-medium flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Certificado {vehicle.inspectionScore}/100</span>
                   </div>
-                  <h3 className="font-semibold text-slate-900 text-base mt-0.5 line-clamp-1 group-hover:text-amber-600 transition-colors">
-                    {vehicle.title}
-                  </h3>
-                  
-                  {/* Metadatos en texto unboxed con separadores tipográficos */}
-                  <div className="text-xs text-slate-500 mt-2 flex items-center gap-2">
-                    <span className="font-mono tabular-nums">{vehicle.year}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="font-mono tabular-nums">{vehicle.mileageKm.toLocaleString('es-CL')} km</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{vehicle.fuelType}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{vehicle.transmission}</span>
-                  </div>
+                  {vehicle.plan === 'premium' && (
+                    <div className="absolute top-3 right-3 bg-amber-500 text-slate-950 px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider">
+                      Premium
+                    </div>
+                  )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-baseline justify-between">
+                {/* Contenido de la Card sin Píldoras Estáticas */}
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div>
-                    <span className="text-xs text-slate-400 block">Precio al contado</span>
-                    <span className="font-display font-bold text-xl text-slate-900 font-mono tabular-nums">
-                      ${vehicle.priceUsd.toLocaleString('en-US')} <span className="text-xs font-normal text-slate-500">USD</span>
-                    </span>
+                    <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                      {vehicle.make} · {vehicle.model}
+                    </div>
+                    <h3 className="font-semibold text-slate-900 text-base mt-0.5 line-clamp-1 group-hover:text-amber-600 transition-colors">
+                      {vehicle.title}
+                    </h3>
+                    
+                    {/* Metadatos en texto unboxed con separadores tipográficos */}
+                    <div className="text-xs text-slate-500 mt-2 flex items-center gap-2">
+                      <span className="font-mono tabular-nums">{vehicle.year}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono tabular-nums">{vehicle.mileageKm.toLocaleString('es-CO')} km</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{vehicle.fuelType}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{vehicle.transmission}</span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[11px] text-slate-400 block">Desde</span>
-                    <span className="text-xs font-semibold text-amber-700 font-mono tabular-nums">
-                      ${Math.round(vehicle.priceUsd * 0.016)}/mes
-                    </span>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-baseline justify-between">
+                    <div>
+                      <span className="text-xs text-slate-400 block">Precio al contado</span>
+                      <span className="font-display font-bold text-xl text-slate-900 font-mono tabular-nums">
+                        {formatCop(priceCop)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] text-slate-400 block">Desde</span>
+                      <span className="text-xs font-semibold text-amber-700 font-mono tabular-nums">
+                        {formatCop(monthlyEstimateCop)}/mes
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
