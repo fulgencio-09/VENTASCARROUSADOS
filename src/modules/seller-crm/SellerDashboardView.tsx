@@ -4,7 +4,7 @@
  * AutoMarket Pro - Portal del vendedor y concesionario.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Vehicle, Lead, LeadStatus } from '../../types/marketplace';
 import { formatCop } from '../../core/finance/currency';
 import {
@@ -27,6 +27,8 @@ import {
   PhoneCall,
   X,
   CheckCheck,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface SellerDashboardViewProps {
@@ -38,6 +40,7 @@ interface SellerDashboardViewProps {
 }
 
 const leadStatuses: LeadStatus[] = ['Nuevo', 'Contactado', 'En negociación', 'Vendido', 'Descartado'];
+const LEADS_PER_PAGE = 5;
 
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   vehicles,
@@ -50,6 +53,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   const [inventorySearch, setInventorySearch] = useState('');
   const [leadSearch, setLeadSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'Todos' | LeadStatus>('Todos');
+  const [leadPage, setLeadPage] = useState(1);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const totalViews = vehicles.reduce((acc, vehicle) => acc + (vehicle.viewsCount || 0), 0);
@@ -91,6 +95,24 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       ].some((value) => value.toLowerCase().includes(q));
     });
   }, [leads, leadSearch, leadStatusFilter]);
+
+  const totalLeadPages = Math.max(1, Math.ceil(filteredLeads.length / LEADS_PER_PAGE));
+
+  useEffect(() => {
+    setLeadPage((currentPage) => Math.min(currentPage, totalLeadPages));
+  }, [totalLeadPages]);
+
+  useEffect(() => {
+    setLeadPage(1);
+  }, [leadSearch, leadStatusFilter]);
+
+  const paginatedLeads = useMemo(() => {
+    const start = (leadPage - 1) * LEADS_PER_PAGE;
+    return filteredLeads.slice(start, start + LEADS_PER_PAGE);
+  }, [filteredLeads, leadPage]);
+
+  const firstLeadNumber = filteredLeads.length === 0 ? 0 : (leadPage - 1) * LEADS_PER_PAGE + 1;
+  const lastLeadNumber = Math.min(leadPage * LEADS_PER_PAGE, filteredLeads.length);
 
   const getStatusBadge = (status: LeadStatus) => {
     const styles: Record<LeadStatus, string> = {
@@ -197,9 +219,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                   <tr><th className="p-3.5">1. Nombre Comprador</th><th className="p-3.5">2. Teléfono</th><th className="p-3.5">3. Correo</th><th className="p-3.5">4. Vehículo Interesado</th><th className="p-3.5">5. Mensaje</th><th className="p-3.5">6. Fecha</th><th className="p-3.5">7. Estado</th><th className="p-3.5 text-right">Acciones</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {filteredLeads.length === 0 ? (
+                  {paginatedLeads.length === 0 ? (
                     <tr><td colSpan={8} className="p-10 text-center text-slate-400">No se encontraron leads.</td></tr>
-                  ) : filteredLeads.map((lead) => {
+                  ) : paginatedLeads.map((lead) => {
                     const typeConfig = getContactTypeLabel(lead.type);
                     const TypeIcon = typeConfig.icon;
                     return (
@@ -217,6 +239,45 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/70">
+              <span className="text-xs text-slate-500">
+                Mostrando <span className="font-semibold text-slate-700">{firstLeadNumber}–{lastLeadNumber}</span> de <span className="font-semibold text-slate-700">{filteredLeads.length}</span> registros
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label="Página anterior"
+                  disabled={leadPage === 1}
+                  onClick={() => setLeadPage((page) => Math.max(1, page - 1))}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {Array.from({ length: totalLeadPages }, (_, index) => index + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setLeadPage(page)}
+                    className={`min-w-8 h-8 px-2 rounded-lg border text-xs font-semibold ${
+                      page === leadPage
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-label="Página siguiente"
+                  disabled={leadPage === totalLeadPages}
+                  onClick={() => setLeadPage((page) => Math.min(totalLeadPages, page + 1))}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
