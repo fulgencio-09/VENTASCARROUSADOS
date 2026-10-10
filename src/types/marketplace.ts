@@ -93,8 +93,8 @@ export interface Vehicle {
   model: string;
   version: string;
   year: number;
-  /** Precio de venta en COP. */
-  priceCop: number;
+  /** Precio de venta en COP. Campo canónico para nuevas operaciones. */
+  priceCop?: number;
   /** @deprecated Campo heredado. No debe utilizarse para mostrar ni calcular precios. */
   priceUsd?: number;
   mileageKm: number;
@@ -137,7 +137,7 @@ export interface Lead {
   vehicleId: string;
   vehicleTitle: string;
   /** Precio del vehículo asociado en COP. */
-  vehiclePriceCop: number;
+  vehiclePriceCop?: number;
   /** @deprecated Campo heredado. No debe utilizarse para mostrar ni calcular precios. */
   vehiclePriceUsd?: number;
   buyerName: string;
