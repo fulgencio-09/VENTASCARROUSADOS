@@ -33,6 +33,9 @@ export type BodyType = 'SUV' | 'Sedán' | 'Hatchback' | 'Pick-up' | 'Coupé' | '
 export type ListingStatus = 'publicado' | 'pendiente_aprobacion' | 'en_pausa' | 'vendido' | 'rechazado';
 export type PlanTier = 'free' | 'destacado' | 'premium';
 
+/** Moneda oficial para todos los importes de la plataforma. */
+export type CurrencyCode = 'COP';
+
 export interface VehicleImageItem {
   id: string;
   url: string;
@@ -90,9 +93,10 @@ export interface Vehicle {
   model: string;
   version: string;
   year: number;
-  priceUsd: number;
-  /** Precio de venta en pesos colombianos. Campo canónico para nuevas publicaciones. */
-  priceCop?: number;
+  /** Precio de venta en COP. */
+  priceCop: number;
+  /** @deprecated Campo heredado. No debe utilizarse para mostrar ni calcular precios. */
+  priceUsd?: number;
   mileageKm: number;
   fuelType: FuelType;
   transmission: TransmissionType;
@@ -132,7 +136,10 @@ export interface Lead {
   id: string;
   vehicleId: string;
   vehicleTitle: string;
-  vehiclePriceUsd: number;
+  /** Precio del vehículo asociado en COP. */
+  vehiclePriceCop: number;
+  /** @deprecated Campo heredado. No debe utilizarse para mostrar ni calcular precios. */
+  vehiclePriceUsd?: number;
   buyerName: string;
   buyerEmail: string;
   buyerPhone: string;
@@ -140,6 +147,9 @@ export interface Lead {
   message: string;
   preferredCallTime?: string;
   preferredDate?: string;
+  /** Oferta del comprador en COP. */
+  offeredPriceCop?: number;
+  /** @deprecated Campo heredado. No debe utilizarse para mostrar ni calcular precios. */
   offeredPriceUsd?: number;
   status: LeadStatus;
   createdAt: string;
@@ -149,6 +159,7 @@ export interface PublicationPlan {
   id: PlanTier;
   name: string;
   priceCop: number;
+  currency?: CurrencyCode;
   durationDays: number;
   photoLimit: number;
   features: string[];
