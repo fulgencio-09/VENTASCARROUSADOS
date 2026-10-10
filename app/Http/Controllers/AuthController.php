@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use RuntimeException;
 
 class AuthController extends Controller
@@ -37,7 +39,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Inicio de sesión exitoso.',
-            'user' => $result['user'],
+            'user' => $this->withEffectivePermissions($result['user']),
             'token' => $result['token'],
         ]);
     }
@@ -45,7 +47,7 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         try {
-            $user = $this->authService->register($request->validated());
+            $this->authService->register($request->validated());
 
             $loginResult = $this->authService->login(
                 mb_strtolower(trim($request->validated('email'))),
@@ -63,8 +65,35 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Registro exitoso. Bienvenido a AutoMarket Pro.',
-            'user' => $loginResult['user'],
+            'user' => $this->withEffectivePermissions($loginResult['user']),
             'token' => $loginResult['token'],
         ], 201);
+    }
+
+    public function me(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        return response()->json([
+            'user' => $this->withEffectivePermissions($user->load(['profile', 'roles', 'dealers'])),
+        ]);
+    }
+
+    private function withEffectivePermissions(User $user): User
+    {
+        $rolePermissions = $user->roles()
+            ->with('permissions')
+            ->get()
+            ->flatMap(fn ($role) => $role->permissions->pluck('name'));
+
+        $directPermissions = $user->permissions()->pluck('name');
+
+        $user->setAttribute(
+            'permissions',
+            $rolePermissions->merge($directPermissions)->unique()->values()->all()
+        );
+
+        return $user;
     }
 }
