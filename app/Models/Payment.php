@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Currency;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,13 +46,13 @@ class Payment extends Model
             }
 
             // Regla financiera global: AutoMarket Pro opera exclusivamente en COP.
-            $payment->currency = 'COP';
+            $payment->currency = Currency::code();
         });
 
         static::saving(function (Payment $payment) {
             // Impide que una integración, formulario o proceso interno registre USD
             // u otra moneda en una orden de pago de la plataforma.
-            $payment->currency = 'COP';
+            $payment->currency = Currency::code();
         });
     }
 
