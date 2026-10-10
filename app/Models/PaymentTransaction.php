@@ -67,6 +67,21 @@ class PaymentTransaction extends Model
     }
 
     /**
+     * Fuerza la moneda oficial de AutoMarket Pro en cada transacción.
+     * Las transacciones de pago nunca deben registrarse en USD u otra moneda.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (PaymentTransaction $transaction) {
+            $transaction->currency = 'COP';
+        });
+
+        static::saving(function (PaymentTransaction $transaction) {
+            $transaction->currency = 'COP';
+        });
+    }
+
+    /**
      * Orden de pago principal a la que pertenece esta transacción.
      * NO posee relaciones directas con users, publications o dealers.
      */
