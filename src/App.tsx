@@ -5,10 +5,11 @@
  * AutoMarket Pro - Enrutador Principal y Orquestador de Dominios
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Vehicle, Lead, LeadContactType, LeadStatus } from './types/marketplace';
 import { INITIAL_VEHICLES, INITIAL_LEADS } from './data/mockVehicles';
 import { AuthStateManager } from './core/auth/auth.state';
+import { getVehicles, createVehicle } from './core/api/vehicles.api';
 import { PublicLayout } from './layouts/PublicLayout/PublicLayout';
 import { HomeView } from './modules/home/HomeView';
 import { CatalogView } from './modules/catalog/CatalogView';
@@ -34,16 +35,35 @@ export default function App() {
     }
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3800);
-  };
   const [currentView, setCurrentView] = useState<string>('home');
   const [catalogFilters, setCatalogFilters] = useState<Record<string, string | number>>({});
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [leadModalConfig, setLeadModalConfig] = useState<{ isOpen: boolean; vehicle: Vehicle | null; type: LeadContactType }>({ isOpen: false, vehicle: null, type: 'mensaje' });
   const [authModal, setAuthModal] = useState<{ isOpen: boolean; actionContextText: string; pendingCallback?: () => void }>({ isOpen: false, actionContextText: 'contactar al vendedor' });
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3800);
+  };
+
+  // Fuente de verdad del catálogo: la base de datos. Los mocks solo quedan como
+  // respaldo visual si la API todavía no está disponible en el entorno local.
+  useEffect(() => {
+    let cancelled = false;
+
+    getVehicles({ perPage: 48 })
+      .then(({ vehicles: persistedVehicles }) => {
+        if (!cancelled) setVehicles(persistedVehicles);
+      })
+      .catch(() => {
+        if (!cancelled) showToast('No fue posible consultar la base de datos. Se muestran datos de demostración.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const requireAuth = (contextText: string, callback: () => void) => {
     const session = AuthStateManager.getInstance().getSession();
@@ -81,51 +101,15 @@ export default function App() {
     });
   };
 
-  const handlePublishVehicle = (newVehicleData: Partial<Vehicle>) => {
-    const priceCop = newVehicleData.priceCop ?? 25_900_000;
-    const fullVehicle: Vehicle = {
-      id: `veh-${Date.now()}`,
-      sellerId: 'usr-dealer-01',
-      title: newVehicleData.title || 'Vehículo Seminuevo',
-      make: newVehicleData.make || 'BMW',
-      model: newVehicleData.model || 'Serie 3',
-      version: newVehicleData.version || 'Sport',
-      year: newVehicleData.year || 2022,
-      priceCop,
-      mileageKm: newVehicleData.mileageKm || 30000,
-      fuelType: newVehicleData.fuelType || 'Gasolina',
-      transmission: newVehicleData.transmission || 'Automática',
-      bodyType: newVehicleData.bodyType || 'Sedán',
-      doors: newVehicleData.doors || 4,
-      passengers: newVehicleData.passengers || 5,
-      engine: newVehicleData.engine || '2.0L Turbo',
-      horsepower: newVehicleData.horsepower || 184,
-      traction: newVehicleData.traction || 'RWD',
-      color: newVehicleData.color || 'Gris Grafito',
-      city: newVehicleData.city || 'Santiago',
-      region: newVehicleData.region || 'Metropolitana',
-      images: newVehicleData.images || [],
-      features: newVehicleData.features || [],
-      description: newVehicleData.description || '',
-      status: 'pendiente_aprobacion',
-      plan: newVehicleData.plan || 'destacado',
-      planExpiresAt: newVehicleData.planExpiresAt || '2026-11-30',
-      inspectionScore: newVehicleData.inspectionScore || 94,
-      inspectionItems: newVehicleData.inspectionItems || [
-        { id: '1', category: 'Motor y Transmisión', item: 'Compresión y hermeticidad de juntas', status: 'passed' },
-        { id: '2', category: 'Frenos y Suspensión', item: 'Espesor de pastillas y discos', status: 'passed' },
-        { id: '3', category: 'Carrocería y Pintura', item: 'Pintura original sin repintados', status: 'passed' },
-      ],
-      viewsCount: 1,
-      leadsCount: 0,
-      publishedAt: new Date().toISOString().split('T')[0],
-      isFeatured: newVehicleData.isFeatured || false,
-      vinSnippet: newVehicleData.vinSnippet || 'WBA5R1C5...1192',
-      plateSnippet: newVehicleData.plateSnippet || 'TR-44-12',
-      seller: newVehicleData.seller as Vehicle['seller'],
-    };
-    setVehicles((prev) => [fullVehicle, ...prev]);
-    showToast('¡Vehículo registrado y enviado a aprobación!');
+  const handlePublishVehicle = async (newVehicleData: Partial<Vehicle>) => {
+    try {
+      const persistedVehicle = await createVehicle(newVehicleData);
+      setVehicles((prev) => [persistedVehicle, ...prev.filter((v) => v.id !== persistedVehicle.id)]);
+      showToast('¡Vehículo registrado en la base de datos y enviado a aprobación!');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No fue posible registrar el vehículo.';
+      showToast(message);
+    }
   };
 
   const handleCreateLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'status'>) => {
