@@ -154,7 +154,13 @@ export class AuthStateManager {
   }
 
   public hasPermission(permission: string): boolean {
-    return Boolean(this.currentSession.user?.permissions.includes(permission));
+    const user = this.currentSession.user;
+    if (!user) return false;
+
+    // El superadministrador puede administrar todo el catálogo de permisos.
+    if (user.role === 'superadministrador') return true;
+
+    return user.permissions.includes(permission);
   }
 
   public async login(email: string, password: string): Promise<AuthSession> {
@@ -220,6 +226,6 @@ export class AuthStateManager {
   }
 
   private notify(): void {
-    this.listeners.forEach((cb) => cb(this.currentSession));
+    this.listeners.forEach((callback) => callback(this.currentSession));
   }
 }
