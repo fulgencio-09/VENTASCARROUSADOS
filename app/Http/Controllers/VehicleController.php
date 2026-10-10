@@ -25,6 +25,8 @@ class VehicleController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $isMine = $request->boolean('mine');
+
         $query = Vehicle::query()
             ->with([
                 'make:id,name',
@@ -36,11 +38,15 @@ class VehicleController extends Controller
                 'color:id,name',
                 'tractionType:id,name',
                 'city:id,name',
-                'publications' => fn ($q) => $q->with('plan:id,code')->latest('id')->limit(1),
+                'publications' => function ($q) use ($isMine): void {
+                    $q->with('plan:id,code')
+                        ->when(!$isMine, fn ($publicationQuery) => $publicationQuery->where('status', 'publicado'))
+                        ->latest('id');
+                },
             ])
-            ->whereNull('deleted_at');
+            ->whereNull('vehicles.deleted_at');
 
-        if ($request->boolean('mine')) {
+        if ($isMine) {
             abort_unless($request->user(), 401);
             $query->where('owner_user_id', $request->user()->id);
         } else {
@@ -60,7 +66,9 @@ class VehicleController extends Controller
         $vehicles = $query->latest('vehicles.id')->paginate($perPage);
 
         return response()->json([
-            'data' => collect($vehicles->items())->map(fn (Vehicle $vehicle) => $this->vehicleDto($vehicle))->values(),
+            'data' => collect($vehicles->items())
+                ->map(fn (Vehicle $vehicle) => $this->vehicleDto($vehicle))
+                ->values(),
             'meta' => [
                 'current_page' => $vehicles->currentPage(),
                 'last_page' => $vehicles->lastPage(),
