@@ -3,6 +3,7 @@ CREATE TABLE refunds (
     uuid CHAR(36) NOT NULL,
     payment_id BIGINT UNSIGNED NOT NULL,
     amount DECIMAL(14, 2) NOT NULL,
+    currency CHAR(3) NOT NULL DEFAULT 'COP',
     reason VARCHAR(255) NULL,
     status VARCHAR(50) NOT NULL,
     approved_by_user_id BIGINT UNSIGNED NULL,
