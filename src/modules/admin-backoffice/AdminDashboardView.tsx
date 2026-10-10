@@ -1,5 +1,6 @@
-import React from 'react';
-import { Vehicle, Lead } from '../../types/marketplace';
+import React, { useMemo, useState } from 'react';
+import { CheckCircle2, Eye, Filter, ShieldCheck, XCircle } from 'lucide-react';
+import { Lead, Vehicle } from '../../types/marketplace';
 import { AdminDatabaseView } from './AdminDatabaseView';
 
 interface AdminDashboardViewProps {
@@ -12,12 +13,182 @@ interface AdminDashboardViewProps {
   onSelectVehicle: (v: Vehicle) => void;
 }
 
+type AdminTab = 'gestion' | 'supervision';
+
 /**
  * BackOffice Administrativo.
  *
- * La configuración de capacidades es interna al sistema y se define por rol.
- * No se expone al usuario final una matriz de permisos técnicos.
+ * Regla funcional:
+ * - Superadministrador y administrador supervisan la actividad comercial.
+ * - Pueden aprobar/rechazar publicaciones.
+ * - NO pueden cambiar estados de leads, contactar compradores, negociar ni
+ *   ejecutar acciones comerciales sobre ventas de vendedores/concesionarios.
  */
-export const AdminDashboardView: React.FC<AdminDashboardViewProps> = () => {
-  return <AdminDatabaseView />;
+export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
+  vehicles,
+  leads = [],
+  onApproveVehicle,
+  onRejectVehicle,
+  onSelectVehicle,
+}) => {
+  const [tab, setTab] = useState<AdminTab>('supervision');
+  const [leadFilter, setLeadFilter] = useState<'Todos' | Lead['status']>('Todos');
+
+  const pendingVehicles = useMemo(
+    () => vehicles.filter((vehicle) => ['pendiente', 'pendiente_aprobacion'].includes(vehicle.status)),
+    [vehicles],
+  );
+
+  const visibleLeads = useMemo(
+    () => leadFilter === 'Todos' ? leads : leads.filter((lead) => lead.status === leadFilter),
+    [leads, leadFilter],
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+        <header className="flex flex-col gap-2 border-b border-slate-200 pb-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-orange-600">BackOffice</p>
+          <h1 className="text-3xl font-bold text-slate-900">Supervisión de la operación</h1>
+          <p className="text-slate-500 max-w-3xl">
+            Administración y supervisión del marketplace. Las ventas y negociaciones pertenecen exclusivamente al vendedor o concesionario propietario.
+          </p>
+        </header>
+
+        <div className="flex flex-wrap gap-2 rounded-2xl border bg-white p-2">
+          <button
+            onClick={() => setTab('supervision')}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold ${tab === 'supervision' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            <ShieldCheck className="inline mr-2" size={16} /> Supervisión comercial
+          </button>
+          <button
+            onClick={() => setTab('gestion')}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold ${tab === 'gestion' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            Usuarios y roles
+          </button>
+        </div>
+
+        {tab === 'gestion' && <AdminDatabaseView />}
+
+        {tab === 'supervision' && (
+          <div className="space-y-6">
+            <section className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border bg-white p-5">
+                <p className="text-xs uppercase tracking-wider text-slate-500">Publicaciones pendientes</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">{pendingVehicles.length}</p>
+                <p className="mt-1 text-xs text-slate-500">Requieren revisión administrativa</p>
+              </div>
+              <div className="rounded-2xl border bg-white p-5">
+                <p className="text-xs uppercase tracking-wider text-slate-500">Leads supervisados</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">{leads.length}</p>
+                <p className="mt-1 text-xs text-slate-500">Solo consulta, sin modificar la negociación</p>
+              </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+                <p className="text-xs uppercase tracking-wider text-blue-700">Regla administrativa</p>
+                <p className="mt-2 text-sm font-semibold text-blue-900">Aprobar publicación no permite administrar la venta.</p>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border bg-white">
+              <div className="flex flex-col gap-3 border-b p-5 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="font-bold text-slate-900">Publicaciones para aprobación</h2>
+                  <p className="text-xs text-slate-500 mt-1">El administrador valida la publicación, no la negociación.</p>
+                </div>
+              </div>
+              {pendingVehicles.length === 0 ? (
+                <div className="p-8 text-center text-sm text-slate-500">No hay publicaciones pendientes de aprobación.</div>
+              ) : (
+                <div className="divide-y">
+                  {pendingVehicles.map((vehicle) => (
+                    <div key={vehicle.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+                      <button onClick={() => onSelectVehicle(vehicle)} className="text-left">
+                        <div className="font-semibold text-slate-900">{vehicle.title}</div>
+                        <div className="mt-1 text-xs text-slate-500">{vehicle.make} {vehicle.model} · {vehicle.year} · {vehicle.city}</div>
+                        <div className="mt-1 text-sm font-semibold text-orange-600">{vehicle.priceUsd?.toLocaleString('es-CO')} COP</div>
+                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => onSelectVehicle(vehicle)} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                          <Eye size={15} /> Ver
+                        </button>
+                        <button onClick={() => onApproveVehicle(vehicle.id)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                          <CheckCircle2 size={15} /> Aprobar publicación
+                        </button>
+                        <button onClick={() => onRejectVehicle(vehicle.id, 'No cumple las condiciones de publicación')} className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
+                          <XCircle size={15} /> Rechazar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border bg-white">
+              <div className="border-b p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="font-bold text-slate-900">Ventas y leads de vendedores/concesionarios</h2>
+                    <p className="text-xs text-slate-500 mt-1">Vista de supervisión. Los controles de negociación están deshabilitados para administración.</p>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto">
+                    <Filter size={15} className="text-slate-400" />
+                    {(['Todos', 'Nuevo', 'Contactado', 'En negociación', 'Vendido', 'Descartado'] as const).map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setLeadFilter(status)}
+                        className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${leadFilter === status ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="p-4">Comprador</th>
+                      <th className="p-4">Vehículo</th>
+                      <th className="p-4">Mensaje</th>
+                      <th className="p-4">Fecha</th>
+                      <th className="p-4">Estado</th>
+                      <th className="p-4">Acciones administrativas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleLeads.map((lead) => (
+                      <tr key={lead.id} className="border-t align-top">
+                        <td className="p-4">
+                          <div className="font-semibold text-slate-900">{lead.buyerName}</div>
+                          <div className="text-xs text-slate-500">{lead.buyerPhone}</div>
+                          <div className="text-xs text-slate-500">{lead.buyerEmail}</div>
+                        </td>
+                        <td className="p-4 font-medium text-slate-700">{lead.vehicleTitle}</td>
+                        <td className="p-4 max-w-xs text-slate-600">{lead.message}</td>
+                        <td className="p-4 whitespace-nowrap text-slate-500">{lead.createdAt}</td>
+                        <td className="p-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{lead.status}</span></td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                            <Eye size={14} /> Solo consulta
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {visibleLeads.length === 0 && (
+                      <tr><td colSpan={6} className="p-8 text-center text-sm text-slate-500">No hay leads para este filtro.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
