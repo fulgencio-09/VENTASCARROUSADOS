@@ -1,6 +1,7 @@
 import React from 'react';
 import { Vehicle, Lead } from '../../types/marketplace';
 import { AdminDatabaseView } from './AdminDatabaseView';
+import { PermissionFeaturePanel } from './PermissionFeaturePanel';
 
 interface AdminDashboardViewProps {
   vehicles: Vehicle[];
@@ -15,11 +16,15 @@ interface AdminDashboardViewProps {
 /**
  * BackOffice Administrativo.
  *
- * La vista ya no presenta registros mock para los módulos administrativos.
- * La gestión se realiza mediante la API Laravel y la base de datos AutoMarket Pro.
- * Los props de operación se mantienen temporalmente para conservar el contrato
- * con App.tsx mientras los demás módulos son migrados a persistencia real.
+ * La vista de gestión mantiene la administración de usuarios, roles y permisos
+ * y ahora muestra un panel de las funcionalidades que quedan activadas por
+ * las casillas marcadas en cada rol.
  */
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = () => {
-  return <AdminDatabaseView />;
+  return (
+    <div className="space-y-6">
+      <AdminDatabaseView />
+      <PermissionFeaturePanel />
+    </div>
+  );
 };
