@@ -1,15 +1,9 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Contratos de Dominio: Identidad, Roles y Perfiles
+ * Contratos de Dominio: Identidad, Roles, Perfiles y permisos efectivos
  */
 
-/**
- * Roles autenticables del sistema.
- *
- * Visitantes y clientes no son roles: son usuarios no autenticados que
- * únicamente pueden consultar las publicaciones públicas.
- */
 export type UserRole =
   | 'vendedor_particular'
   | 'concesionario'
@@ -22,10 +16,11 @@ export interface UserPermission {
 }
 
 export interface User {
-  id: string; // UUID v7
+  id: string;
   name: string;
   email: string;
   role: UserRole;
+  permissions: string[];
   phone?: string;
   avatarUrl?: string;
   isActive: boolean;
