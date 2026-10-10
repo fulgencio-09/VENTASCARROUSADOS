@@ -20,19 +20,8 @@ class AdminDataController extends Controller
         'superadministrador',
     ];
 
-    private function ensureSuperAdmin(Request $request): void
-    {
-        abort_unless(
-            $request->user()?->roles()->where('name', 'superadministrador')->exists(),
-            403,
-            'Solo el superadministrador puede realizar esta operación.'
-        );
-    }
-
     public function users(Request $request): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         $users = User::with(['profile', 'roles'])
             ->orderByDesc('id')
             ->paginate((int) min(max((int) $request->integer('per_page', 20), 1), 100));
@@ -42,8 +31,6 @@ class AdminDataController extends Controller
 
     public function storeUser(Request $request): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         $data = $request->validate([
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
@@ -91,13 +78,9 @@ class AdminDataController extends Controller
 
     public function updateUser(Request $request, User $user): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         $data = $request->validate([
             'email' => ['sometimes', 'required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => ['sometimes', 'nullable', 'string', 'min:8'],
-            'status' => ['sometimes', 'required', Rule::in(['active', 'inactive', 'suspended'])],
-            'role' => ['sometimes', Rule::in(self::ROLES)],
             'first_name' => ['sometimes', 'nullable', 'string', 'max:100'],
             'last_name' => ['sometimes', 'nullable', 'string', 'max:100'],
             'document_type' => ['sometimes', 'nullable', 'string', 'max:30'],
@@ -108,18 +91,11 @@ class AdminDataController extends Controller
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
 
-        if ($user->id === $request->user()->id && (($data['status'] ?? $user->status) !== 'active')) {
-            abort(422, 'No puede desactivar o suspender su propia cuenta.');
-        }
-
         DB::transaction(function () use ($data, $user): void {
             $userData = [];
 
             if (array_key_exists('email', $data)) {
                 $userData['email'] = mb_strtolower(trim($data['email']));
-            }
-            if (array_key_exists('status', $data)) {
-                $userData['status'] = $data['status'];
             }
             if (!empty($data['password'])) {
                 $userData['password'] = Hash::make($data['password']);
@@ -138,11 +114,6 @@ class AdminDataController extends Controller
             if ($profileData !== []) {
                 $user->profile()->updateOrCreate(['user_id' => $user->id], $profileData);
             }
-
-            if (array_key_exists('role', $data)) {
-                $roleId = Role::where('name', $data['role'])->value('id');
-                $user->roles()->sync([$roleId]);
-            }
         });
 
         return response()->json([
@@ -151,10 +122,56 @@ class AdminDataController extends Controller
         ]);
     }
 
+    public function changeUserStatus(Request $request, User $user): JsonResponse
+    {
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
+        ]);
+
+        abort_if($user->id === $request->user()->id && $data['status'] !== 'active', 422, 'No puede desactivar o suspender su propia cuenta.');
+
+        $user->update(['status' => $data['status']]);
+
+        return response()->json([
+            'message' => 'Estado del usuario actualizado correctamente.',
+            'user' => $user->fresh()->load(['profile', 'roles']),
+        ]);
+    }
+
+    public function changeUserRole(Request $request, User $user): JsonResponse
+    {
+        $data = $request->validate([
+            'role' => ['required', Rule::in(self::ROLES)],
+        ]);
+
+        $roleId = Role::where('name', $data['role'])->value('id');
+        abort_unless($roleId, 422, 'El rol solicitado no existe.');
+
+        if ($user->id === $request->user()->id && $data['role'] !== 'superadministrador') {
+            abort(422, 'No puede retirar su propio rol de superadministrador.');
+        }
+
+        $user->roles()->sync([$roleId]);
+
+        return response()->json([
+            'message' => 'Rol del usuario actualizado correctamente.',
+            'user' => $user->fresh()->load(['profile', 'roles']),
+        ]);
+    }
+
+    public function resetUserPassword(Request $request, User $user): JsonResponse
+    {
+        $data = $request->validate([
+            'password' => ['required', 'string', 'min:8'],
+        ]);
+
+        $user->update(['password' => Hash::make($data['password'])]);
+
+        return response()->json(['message' => 'Contraseña restablecida correctamente.']);
+    }
+
     public function destroyUser(Request $request, User $user): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         abort_if($user->id === $request->user()->id, 422, 'No puede eliminar su propia cuenta.');
 
         $isSuperAdmin = $user->roles()->where('name', 'superadministrador')->exists();
@@ -171,10 +188,8 @@ class AdminDataController extends Controller
         return response()->json(['message' => 'Usuario eliminado correctamente.']);
     }
 
-    public function roles(Request $request): JsonResponse
+    public function roles(): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         return response()->json([
             'data' => Role::whereIn('name', self::ROLES)
                 ->with('permissions:id,name,guard_name,description')
@@ -186,8 +201,6 @@ class AdminDataController extends Controller
 
     public function updateRolePermissions(Request $request, Role $role): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         abort_unless(in_array($role->name, self::ROLES, true), 404, 'Rol no encontrado.');
 
         $data = $request->validate([
@@ -203,10 +216,8 @@ class AdminDataController extends Controller
         ]);
     }
 
-    public function permissions(Request $request): JsonResponse
+    public function permissions(): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         return response()->json([
             'data' => Permission::withCount('roles')
                 ->orderBy('name')
@@ -216,8 +227,6 @@ class AdminDataController extends Controller
 
     public function storePermission(Request $request): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100', 'unique:permissions,name,NULL,id,guard_name,web'],
             'guard_name' => ['nullable', 'string', 'max:100'],
@@ -238,8 +247,6 @@ class AdminDataController extends Controller
 
     public function updatePermission(Request $request, Permission $permission): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('permissions', 'name')->ignore($permission->id)->where('guard_name', $permission->guard_name)],
             'description' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -255,8 +262,6 @@ class AdminDataController extends Controller
 
     public function destroyPermission(Request $request, Permission $permission): JsonResponse
     {
-        $this->ensureSuperAdmin($request);
-
         abort_if($permission->roles()->exists(), 422, 'No puede eliminar un permiso que está asignado a uno o más roles.');
 
         $permission->delete();
