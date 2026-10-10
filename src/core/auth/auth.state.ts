@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Gestor de Estado de Autenticación y Sesión
+ * Gestor de Estado de Autenticación, Sesión y permisos efectivos.
  */
 
 import { User, UserRole, AuthSession } from '../../domain/user/user.entity';
@@ -19,6 +19,7 @@ type ApiUser = {
     whatsapp?: string | null;
   } | null;
   roles?: Array<{ id: number; name: string }>;
+  permissions?: string[];
   dealers?: Array<{
     legal_name: string;
     commercial_name: string;
@@ -74,6 +75,7 @@ function normalizeUser(raw: ApiUser): User {
     name: [firstName, lastName].filter(Boolean).join(' ') || raw.email,
     email: raw.email,
     role,
+    permissions: raw.permissions ?? [],
     phone: raw.profile?.phone ?? raw.profile?.whatsapp ?? undefined,
     isActive: raw.status === 'active',
     isKycVerified: Boolean(raw.is_kyc_verified),
@@ -126,7 +128,7 @@ export class AuthStateManager {
     if (savedUserJson && savedToken) {
       try {
         const savedUser = JSON.parse(savedUserJson) as User;
-        initialUser = savedUser;
+        initialUser = { ...savedUser, permissions: savedUser.permissions ?? [] };
       } catch {
         localStorage.removeItem(APP_CONFIG.storageKeys.authUser);
         localStorage.removeItem(APP_CONFIG.storageKeys.authToken);
@@ -151,6 +153,10 @@ export class AuthStateManager {
     return this.currentSession;
   }
 
+  public hasPermission(permission: string): boolean {
+    return Boolean(this.currentSession.user?.permissions.includes(permission));
+  }
+
   public async login(email: string, password: string): Promise<AuthSession> {
     const response = await requestAuth('/auth/login', { email, password });
     const user = normalizeUser(response.user);
@@ -162,6 +168,24 @@ export class AuthStateManager {
     const response = await requestAuth('/auth/register', payload as unknown as Record<string, unknown>);
     const user = normalizeUser(response.user);
     this.setSession(user, response.token);
+    return this.currentSession;
+  }
+
+  public async refreshPermissions(): Promise<AuthSession> {
+    if (!this.currentSession.token) return this.currentSession;
+
+    const response = await fetch(`${APP_CONFIG.apiBaseUrl}/auth/me`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${this.currentSession.token}`,
+      },
+    });
+
+    if (!response.ok) return this.currentSession;
+
+    const data = await response.json() as { user: ApiUser };
+    const user = normalizeUser(data.user);
+    this.setSession(user, this.currentSession.token);
     return this.currentSession;
   }
 
