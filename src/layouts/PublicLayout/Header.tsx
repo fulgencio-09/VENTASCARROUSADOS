@@ -40,6 +40,13 @@ export const Header: React.FC<HeaderProps> = ({
   const activeRole = session.user?.role;
   const activeRoleLabel = activeRole ? roleLabels[activeRole] : null;
 
+  const handleLogout = () => {
+    AuthStateManager.getInstance().logout();
+    // Al cerrar sesión se recarga la SPA para eliminar de memoria cualquier
+    // formulario, modal o panel protegido que estuviera abierto.
+    window.location.reload();
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -95,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline text-slate-500">Rol:</span>
                 <span className="font-semibold text-slate-900">{activeRoleLabel}</span>
               </div>
-              <button onClick={() => AuthStateManager.getInstance().logout()} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer" title="Cerrar sesión">
+              <button onClick={handleLogout} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer" title="Cerrar sesión">
                 <LogOut className="w-4 h-4" />
               </button>
             </>
