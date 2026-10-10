@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/register', [AuthController::class, 'register']);
+Route::get('/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->prefix('admin')->group(function (): void {
     Route::get('/users', [AdminDataController::class, 'users'])
