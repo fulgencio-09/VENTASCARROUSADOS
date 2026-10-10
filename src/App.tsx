@@ -24,6 +24,7 @@ import { AuthRequiredModal } from './modules/auth/AuthRequiredModal';
 
 export default function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
+  const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [comparisonList, setComparisonList] = useState<Vehicle[]>([]);
   const [favorites, setFavorites] = useState<string[]>(() => {
@@ -47,11 +48,8 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3800);
   };
 
-  // Fuente de verdad del catálogo: la base de datos. Los mocks solo quedan como
-  // respaldo visual si la API todavía no está disponible en el entorno local.
   useEffect(() => {
     let cancelled = false;
-
     getVehicles({ perPage: 48 })
       .then(({ vehicles: persistedVehicles }) => {
         if (!cancelled) setVehicles(persistedVehicles);
@@ -59,11 +57,24 @@ export default function App() {
       .catch(() => {
         if (!cancelled) showToast('No fue posible consultar la base de datos. Se muestran datos de demostración.');
       });
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (currentView !== 'seller_dashboard') return;
+    const session = AuthStateManager.getInstance().getSession();
+    if (!session.isAuthenticated) return;
+
+    let cancelled = false;
+    getVehicles({ mine: true, perPage: 48 })
+      .then(({ vehicles: persistedVehicles }) => {
+        if (!cancelled) setMyVehicles(persistedVehicles);
+      })
+      .catch((error) => {
+        if (!cancelled) showToast(error instanceof Error ? error.message : 'No fue posible consultar tus vehículos.');
+      });
+    return () => { cancelled = true; };
+  }, [currentView]);
 
   const requireAuth = (contextText: string, callback: () => void) => {
     const session = AuthStateManager.getInstance().getSession();
@@ -105,6 +116,7 @@ export default function App() {
     try {
       const persistedVehicle = await createVehicle(newVehicleData);
       setVehicles((prev) => [persistedVehicle, ...prev.filter((v) => v.id !== persistedVehicle.id)]);
+      setMyVehicles((prev) => [persistedVehicle, ...prev.filter((v) => v.id !== persistedVehicle.id)]);
       showToast('¡Vehículo registrado en la base de datos y enviado a aprobación!');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No fue posible registrar el vehículo.';
@@ -164,7 +176,7 @@ export default function App() {
       {currentView === 'home' && <HomeView featuredVehicles={vehicles.filter((v) => v.status === 'publicado')} onSelectVehicle={setSelectedVehicle} onNavigateToCatalog={handleNavigateToCatalog} onOpenPublish={() => requireAuth('publicar un vehículo', () => setIsPublishModalOpen(true))} />}
       {currentView === 'catalog' && <CatalogView vehicles={vehicles} onSelectVehicle={setSelectedVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} initialFilters={catalogFilters} favorites={favorites} onToggleFavorite={handleToggleFavorite} onRequireAuth={requireAuth} />}
       {currentView === 'compare' && <ComparisonView vehicles={comparisonList} onRemoveFromCompare={(id) => setComparisonList((prev) => prev.filter((v) => v.id !== id))} onClearAll={() => setComparisonList([])} onSelectVehicle={setSelectedVehicle} onNavigateToCatalog={() => setCurrentView('catalog')} />}
-      {currentView === 'seller_dashboard' && <SellerDashboardView vehicles={vehicles} leads={leads} onOpenPublish={() => setIsPublishModalOpen(true)} onUpdateLeadStatus={handleUpdateLeadStatus} onToggleVehicleStatus={handleToggleVehicleStatus} />}
+      {currentView === 'seller_dashboard' && <SellerDashboardView vehicles={myVehicles.length ? myVehicles : vehicles} leads={leads} onOpenPublish={() => setIsPublishModalOpen(true)} onUpdateLeadStatus={handleUpdateLeadStatus} onToggleVehicleStatus={handleToggleVehicleStatus} />}
       {currentView === 'admin_dashboard' && <AdminDashboardView vehicles={vehicles} leads={leads} onApproveVehicle={handleApproveVehicle} onRejectVehicle={handleRejectVehicle} onSuspendVehicle={handleSuspendVehicle} onToggleFeatureVehicle={handleToggleFeatureVehicle} onSelectVehicle={setSelectedVehicle} />}
       {currentView === 'prompts_suite' && <PromptsSuiteView />}
 
