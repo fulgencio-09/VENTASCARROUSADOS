@@ -20,14 +20,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class VehicleController extends Controller
 {
-    /**
-     * Consulta el catálogo persistido. Público: solo publicaciones publicadas.
-     * Autenticado con mine=1: devuelve los vehículos del usuario propietario.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = Vehicle::query()
@@ -41,12 +36,11 @@ class VehicleController extends Controller
                 'color:id,name',
                 'tractionType:id,name',
                 'city:id,name',
-                'publications' => fn ($q) => $q->latest('id')->limit(1),
+                'publications' => fn ($q) => $q->with('plan:id,code')->latest('id')->limit(1),
             ])
             ->whereNull('deleted_at');
 
-        $mine = $request->boolean('mine');
-        if ($mine) {
+        if ($request->boolean('mine')) {
             abort_unless($request->user(), 401);
             $query->where('owner_user_id', $request->user()->id);
         } else {
@@ -76,10 +70,6 @@ class VehicleController extends Controller
         ]);
     }
 
-    /**
-     * Registra el activo físico y su publicación comercial en una sola transacción.
-     * El propietario se toma siempre de la sesión autenticada.
-     */
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -127,7 +117,6 @@ class VehicleController extends Controller
                 ['make_id' => $make->id, 'slug' => Str::slug($validated['model'])],
                 ['body_type_id' => $bodyType->id, 'name' => $validated['model'], 'is_active' => true]
             );
-
             $model->body_type_id = $bodyType->id;
             $model->save();
 
@@ -143,12 +132,10 @@ class VehicleController extends Controller
                 ['slug' => Str::slug($validated['fuel_type'])],
                 ['name' => $validated['fuel_type'], 'is_active' => true]
             );
-
             $transmission = Transmission::firstOrCreate(
                 ['slug' => Str::slug($validated['transmission'])],
                 ['name' => $validated['transmission'], 'is_active' => true]
             );
-
             $color = Color::firstOrCreate(
                 ['slug' => Str::slug($validated['color'])],
                 ['name' => $validated['color'], 'is_active' => true]
@@ -203,25 +190,33 @@ class VehicleController extends Controller
                 'condition_status' => 'usado',
             ]);
 
-            $plan = Plan::query()
-                ->where('code', $validated['plan'] ?? 'destacado')
-                ->where('is_active', true)
-                ->first();
+            $planCode = $validated['plan'] ?? 'destacado';
+            $planDefaults = [
+                'free' => ['name' => 'Básico', 'price_amount' => 0, 'duration_days' => 30, 'max_photos' => 8, 'is_featured' => false],
+                'destacado' => ['name' => 'Destacado', 'price_amount' => 29000, 'duration_days' => 45, 'max_photos' => 18, 'is_featured' => true],
+                'premium' => ['name' => 'Premium Oro', 'price_amount' => 59000, 'duration_days' => 45, 'max_photos' => 30, 'is_featured' => true],
+            ];
+            $planConfig = $planDefaults[$planCode] ?? $planDefaults['destacado'];
 
-            if (!$plan) {
-                throw new \RuntimeException('El plan de publicación seleccionado no existe o está inactivo.');
-            }
+            $plan = Plan::firstOrCreate(
+                ['code' => $planCode],
+                array_merge($planConfig, [
+                    'description' => 'Plan de publicación AutoMarket Pro',
+                    'target' => 'publication',
+                    'price_currency' => 'COP',
+                    'max_listings' => null,
+                    'is_active' => true,
+                ])
+            );
 
             $title = $validated['title'] ?? trim($validated['make'] . ' ' . $validated['model'] . ' ' . ($validated['version'] ?? ''));
-            $slug = Str::slug($title) . '-' . $vehicle->uuid;
-
             $publication = Publication::create([
                 'vehicle_id' => $vehicle->id,
                 'seller_user_id' => $user->id,
                 'dealer_id' => $dealerId,
                 'plan_id' => $plan->id,
                 'title' => $title,
-                'slug' => $slug,
+                'slug' => Str::slug($title) . '-' . $vehicle->uuid,
                 'description' => $validated['description'] ?? null,
                 'price_amount' => $validated['price_cop'],
                 'is_negotiable' => (bool) ($validated['is_negotiable'] ?? false),
@@ -233,7 +228,7 @@ class VehicleController extends Controller
             $vehicle->load([
                 'make:id,name', 'model:id,name', 'version:id,name', 'fuelType:id,name',
                 'transmission:id,name', 'bodyType:id,name', 'color:id,name', 'tractionType:id,name',
-                'city:id,name', 'publications' => fn ($q) => $q->whereKey($publication->id),
+                'city:id,name', 'publications' => fn ($q) => $q->with('plan:id,code')->whereKey($publication->id),
             ]);
 
             return [$vehicle, $publication];
